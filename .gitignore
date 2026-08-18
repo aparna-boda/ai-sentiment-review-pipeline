@@ -1,0 +1,35 @@
+# Environment
+.env
+
+# Logs
+logs/*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Windows/WSL download artifacts
+*.Zone.Identifier
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/

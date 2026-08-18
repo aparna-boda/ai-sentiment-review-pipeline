@@ -1,0 +1,16 @@
+pipeline:
+  source: "McAuley-Lab/Amazon-Reviews-2023"
+  subset: "raw_review_Books"
+  split: "full"
+  category: "Books"
+  batch_size: 5000
+  model_name: "distilbert-base-uncased-finetuned-sst-2-english"
+
+scoring:
+  model_batch_size: 16
+  neutral_confidence_threshold: 0.6
+
+quality:
+  min_review_length: 3
+  valid_sentiment_labels: ["Positive", "Negative", "Neutral"]
+  confidence_range: [0.0, 1.0]

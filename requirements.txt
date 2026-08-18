@@ -1,0 +1,24 @@
+# Data source
+datasets==2.19.1
+
+# Sentiment model / NLP
+transformers==4.41.2
+torch==2.3.1
+
+# Data processing
+pandas==2.2.2
+
+# Database
+SQLAlchemy==2.0.30
+psycopg2-binary==2.9.9
+
+# Dashboard
+streamlit==1.35.0
+plotly==5.22.0
+
+# Config
+python-dotenv==1.0.1
+PyYAML==6.0.1
+
+# Testing
+pytest==8.2.1
