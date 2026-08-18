@@ -1,5 +1,7 @@
 # ai-sentiment-review-pipeline
 
+[![CI](https://github.com/aparna-boda/ai-sentiment-review-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/aparna-boda/ai-sentiment-review-pipeline/actions/workflows/ci.yml)
+
 A generic, config-driven batch pipeline that ingests customer reviews, scores sentiment with DistilBERT, validates data quality, loads results into Supabase PostgreSQL, and surfaces trends on a Streamlit dashboard.
 
 Demo dataset: Amazon Books reviews (HuggingFace `McAuley-Lab/Amazon-Reviews-2023`, `raw_review_Books` subset). The pipeline is source-agnostic — swap the dataset via `config/config.yaml`, no code changes required.
