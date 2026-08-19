@@ -90,7 +90,12 @@ def _get_engine():
     database_url = os.getenv("DATABASE_URL")
     if not database_url:
         raise RuntimeError("DATABASE_URL is not set. Check your .env file.")
-    return create_engine(_normalise_database_url(database_url))
+    # pool_pre_ping: a connection opened at ingestion time (get_ingestion_offset)
+    # can sit idle through several minutes of CPU-bound scoring before the load
+    # stage reuses it — Supabase's pooler drops idle connections, so without
+    # pre_ping that reuse fails with "Connection timed out" instead of silently
+    # reconnecting.
+    return create_engine(_normalise_database_url(database_url), pool_pre_ping=True)
 
 
 def _ensure_schema(engine):
