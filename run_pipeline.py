@@ -7,6 +7,7 @@ import yaml
 from dotenv import load_dotenv
 
 from src.ingestion.loader import load_reviews as ingest_reviews
+from src.loader.db import advance_ingestion_offset, get_ingestion_offset
 from src.loader.db import load_reviews as load_reviews_to_db
 from src.loader.db import record_pipeline_run
 from src.quality.validator import validate_reviews
@@ -55,7 +56,8 @@ def main() -> None:
     status = "FAILED"
 
     try:
-        raw_df = ingest_reviews(config)
+        offset = get_ingestion_offset(config)
+        raw_df, records_consumed = ingest_reviews(config, offset=offset)
         counts["records_ingested"] = len(raw_df)
 
         scored_df = score_reviews(raw_df, config)
@@ -66,6 +68,10 @@ def main() -> None:
         counts["records_failed_qc"] = counts["records_scored"] - counts["records_passed_qc"]
 
         counts["records_loaded"] = load_reviews_to_db(validated_df, config)
+
+        # Only advance the watermark once the batch is safely committed —
+        # advancing on failure would skip those source records forever.
+        advance_ingestion_offset(config, records_consumed)
 
         status = "SUCCESS"
     except Exception:

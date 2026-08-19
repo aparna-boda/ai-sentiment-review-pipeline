@@ -40,6 +40,15 @@ dashboard/app.py          standalone Streamlit app, reads DB directly (no import
 - **Ingestion** streams from a HuggingFace dataset (`datasets.load_dataset(..., streaming=True)`
   + `itertools.islice`) rather than downloading it in full — the source dataset is multi-GB.
   `review_id` is derived as `sha256(user_id|asin|timestamp)`, not taken from the source data.
+  Ingestion resumes from a persisted watermark: `run_pipeline.py` reads
+  `get_ingestion_offset(config)` before calling `ingest_reviews`, and calls
+  `advance_ingestion_offset(config, records_consumed)` only after the batch is
+  successfully loaded — so a run that fails never advances the watermark, and a
+  retry re-reads the same batch instead of skipping it. The offset is keyed on
+  `(source, subset, split)` in the `ingestion_state` table. Without this, every
+  run would re-stream the same first `batch_size` records forever, and the
+  idempotent-upsert behavior would be idempotent only because the input never
+  changed — this is what makes re-running the pipeline actually ingest new data.
 - **Scoring** runs the HF `sentiment-analysis` pipeline CPU-only (`device=-1`), batched by
   `scoring.model_batch_size`. Reviews under `quality.min_review_length` words are dropped before
   scoring. Any prediction with `confidence_score < scoring.neutral_confidence_threshold` is
@@ -51,8 +60,8 @@ dashboard/app.py          standalone Streamlit app, reads DB directly (no import
 - **Load** uses SQLAlchemy Core (not the ORM) with
   `postgresql.insert(...).on_conflict_do_nothing(index_elements=["review_id"])` for idempotency —
   re-running the pipeline on the same data must yield `records_loaded == 0` on the second run.
-  `_ensure_schema()` creates the `reviews` / `pipeline_runs` tables on first run
-  (`metadata.create_all(engine, checkfirst=True)`). `record_pipeline_run()` is called from
+  `_ensure_schema()` creates the `reviews` / `pipeline_runs` / `ingestion_state` tables on
+  first run (`metadata.create_all(engine, checkfirst=True)`). `record_pipeline_run()` is called from
   `run_pipeline.py`'s `finally` block wrapped in its own try/except, so a DB failure during the
   main load still gets a `FAILED` row recorded if the DB is reachable at all.
 - **Config** (`config/config.yaml`) drives dataset source/subset/split, batch sizes, the model

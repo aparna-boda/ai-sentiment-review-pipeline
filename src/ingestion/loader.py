@@ -24,9 +24,17 @@ def _build_review_id(user_id, asin, timestamp) -> str:
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
-def load_reviews(config: dict) -> pd.DataFrame:
+def load_reviews(config: dict, offset: int = 0) -> tuple[pd.DataFrame, int]:
     """Load a batch of reviews from the configured HuggingFace dataset and
     normalise them to the pipeline's review schema.
+
+    `offset` skips that many records at the start of the source stream
+    before reading a batch, so a caller tracking a persisted watermark can
+    resume from where the previous run left off instead of re-reading the
+    same records every time. Returns `(normalised_df, records_consumed)`,
+    where `records_consumed` is how many raw records were read from the
+    stream this call (<= batch_size, fewer only if the stream is exhausted)
+    — the amount the caller's watermark should advance by.
     """
     stage = "ingestion"
     start = time.perf_counter()
@@ -39,15 +47,16 @@ def load_reviews(config: dict) -> pd.DataFrame:
     batch_size = pipeline_cfg["batch_size"]
 
     logger.info(
-        "[%s] start | source=%s subset=%s split=%s batch_size=%d",
-        stage, source, subset, split, batch_size,
+        "[%s] start | source=%s subset=%s split=%s batch_size=%d offset=%d",
+        stage, source, subset, split, batch_size, offset,
     )
 
     dataset = load_dataset(
         source, subset, split=split, streaming=True, trust_remote_code=True
     )
-    raw_records = list(itertools.islice(dataset, batch_size))
-    records_loaded = len(raw_records)
+    raw_records = list(itertools.islice(dataset, offset, offset + batch_size))
+    records_consumed = len(raw_records)
+    records_loaded = records_consumed
 
     normalised = [
         {
@@ -75,8 +84,8 @@ def load_reviews(config: dict) -> pd.DataFrame:
 
     duration = time.perf_counter() - start
     logger.info(
-        "[%s] done | records_in=%d records_out=%d records_dropped_null_text=%d duration=%.2fs",
-        stage, records_loaded, len(df), records_dropped, duration,
+        "[%s] done | offset=%d records_in=%d records_out=%d records_dropped_null_text=%d duration=%.2fs",
+        stage, offset, records_loaded, len(df), records_dropped, duration,
     )
 
-    return df
+    return df, records_consumed

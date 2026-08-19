@@ -101,7 +101,11 @@ Status:             SUCCESS
 ==================================================
 ```
 
-Every run also inserts one row into the `pipeline_runs` table with the same counts, so history is queryable. Loads are idempotent — re-running against the same data upserts on `review_id` (`ON CONFLICT DO NOTHING`), so `records_loaded` drops to `0` on a repeat run.
+Every run also inserts one row into the `pipeline_runs` table with the same counts, so history is queryable.
+
+**Ingestion is watermarked, not replayed.** Each successful run advances a persisted offset (`ingestion_state` table, keyed on source/subset/split), so the next run pulls the *next* `batch_size` records from the source stream instead of the same ones — this is what lets the pipeline be re-run repeatedly against a growing source and actually pick up new reviews. A run only advances the offset after its batch is committed to `reviews`, so a failed run is retried against the same batch rather than skipping it.
+
+Loads are also idempotent on `review_id` (`ON CONFLICT DO NOTHING`) — that's what protects against duplicates if a run is retried at the same offset (e.g. after a mid-run failure) or the source stream ever repeats a record. It's a different guarantee from the watermark: the watermark stops you from *re-reading* old data on success; the upsert stops you from *duplicating* data if you ever do re-read it.
 
 Failed-quality-check records are appended to `logs/failed_records.log` as JSON Lines.
 
